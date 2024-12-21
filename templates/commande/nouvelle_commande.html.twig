@@ -1,0 +1,155 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nouvelle Commande{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="text-center text-danger">Examen Symfony</h1>
+
+    <!-- Informations sur le client -->
+    <div class="mb-4">
+        <div class="row">
+            <div class="col-md-4">
+                <input type="text" id="client-nom" class="form-control" placeholder="SAMIR OUEDRAOGO" readonly>
+            </div>
+            <div class="col-md-4">
+                <input type="text" id="client-telephone" class="form-control" placeholder="78524361" readonly>
+            </div>
+            <div class="col-md-4">
+                <input type="text" id="client-adresse" class="form-control" placeholder="MEDINA" readonly>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ajout d'article -->
+    <div class="mb-4">
+        <div class="row">
+            <div class="col-md-4">
+                <select id="article" class="form-select">
+                    <option value="">Choisir un article</option>
+                    {% for article in articles %}
+                        <option value="{{ article.id }}">{{ article.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <input type="number" id="quantite" class="form-control" placeholder="Quantité">
+            </div>
+            <div class="col-md-2">
+                <input type="number" id="prix" class="form-control" placeholder="Prix" step="0.01" min="0">
+            </div>
+            <div class="col-md-2">
+                <button id="ajouter-article" class="btn btn-success w-100">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau des articles -->
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Article</th>
+                <th>Prix</th>
+                <th>Quantité</th>
+                <th>Montant</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="articles-table"></tbody>
+    </table>
+
+    <!-- Total -->
+    <div class="text-end">
+        <h3>Total : <span id="total">0.0</span></h3>
+        <button id="valider-commande" class="btn btn-primary">Valider la Commande</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+    // Variables globales
+    let articlesTable = document.getElementById('articles-table');
+    let totalField = document.getElementById('total');
+    let total = 0;
+
+    // Gestion du bouton "Ajouter"
+    document.getElementById('ajouter-article').addEventListener('click', function() {
+        const articleSelect = document.getElementById('article');
+        const quantite = parseInt(document.getElementById('quantite').value);
+        const prix = parseFloat(document.getElementById('prix').value);
+
+        if (!articleSelect.value || quantite <= 0 || prix <= 0) {
+            alert('Veuillez remplir tous les champs correctement.');
+            return;
+        }
+
+        const articleId = articleSelect.value;
+        const articleNom = articleSelect.options[articleSelect.selectedIndex].text;
+        const montant = quantite * prix;
+
+        const row = document.createElement('tr');
+        row.setAttribute('data-article-id', articleId);
+        row.innerHTML = `
+            <td>${articleNom}</td>
+            <td>${prix.toFixed(2)}</td>
+            <td>${quantite}</td>
+            <td>${montant.toFixed(2)}</td>
+            <td>
+                <button class="btn btn-danger btn-sm supprimer-article">Supprimer</button>
+            </td>
+        `;
+        articlesTable.appendChild(row);
+
+        total += montant;
+        totalField.textContent = total.toFixed(2);
+
+        articleSelect.value = '';
+        document.getElementById('quantite').value = '';
+        document.getElementById('prix').value = '';
+    });
+
+    // Gestion du bouton "Supprimer"
+    articlesTable.addEventListener('click', function(event) {
+        if (event.target.classList.contains('supprimer-article')) {
+            const row = event.target.closest('tr');
+            const montant = parseFloat(row.children[3].textContent);
+
+            total -= montant;
+            totalField.textContent = total.toFixed(2);
+
+            row.remove();
+        }
+    });
+
+    // Gestion du bouton "Valider la Commande"
+    document.getElementById('valider-commande').addEventListener('click', function() {
+        const articles = [];
+        articlesTable.querySelectorAll('tr').forEach(row => {
+            const articleId = row.getAttribute('data-article-id');
+            const prix = parseFloat(row.children[1].textContent);
+            const quantite = parseInt(row.children[2].textContent);
+
+            articles.push({ articleId, prix, quantite });
+        });
+
+        fetch("{{ path('valider_commande', { commandeId: commandeId }) }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ articles }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                alert(data.message);
+                location.reload();
+            }
+        })
+        .catch(error => console.error('Erreur:', error));
+    });
+</script>
+{% endblock %}
